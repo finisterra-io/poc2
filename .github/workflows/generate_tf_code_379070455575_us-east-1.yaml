@@ -166,9 +166,10 @@ jobs:
 
               mkdir -p "${{ matrix.service.root_folder }}"
               cp "/tmp/generated/terragrunt.hcl" "${{ matrix.service.root_folder }}"
-              find "${{ matrix.service.root_folder }}/$(basename ${DIR})" -mindepth 1 -not -name 'terragrunt.hcl' -exec rm -rf {} + || true
-              find "${DIR}" -name ".*" -exec rm -rf {} \; || true
+              TARGET_DIR="${{ matrix.service.root_folder }}/$(basename ${DIR})"
+              find "${TARGET_DIR}" -mindepth 1 -not -name 'terragrunt.hcl' -exec rm -rf {} + || true
               cp -a "${DIR}" "${{ matrix.service.root_folder }}" || true
+              find "${TARGET_DIR}" -name ".*" -exec rm -rf {} \; || true
 
               if [ -n "$(git status --porcelain)" ]; then
                 # Changes detected
