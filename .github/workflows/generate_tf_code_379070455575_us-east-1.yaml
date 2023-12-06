@@ -193,10 +193,11 @@ jobs:
           done
 
           echo "stack_list=\"$STACK_LIST\"" >> $GITHUB_OUTPUT
+          echo "stack_list=\"$STACK_LIST\""
 
       - uses: cloudposse/github-action-matrix-outputs-write@0.4.2
         id: stack_output
-        if: ${{ steps.create_pr.outputs.stack_list }} != null
+        if: steps.create_pr.outputs.stack_list != ''
         with:
           matrix-step-name: ${{ github.job }}
           matrix-key: ${{ matrix.service.service_name }}
