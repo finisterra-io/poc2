@@ -217,6 +217,7 @@ jobs:
 
       - name: Export stacks
         id: export
+        if: steps.read.outputs.result != '{}'
         run: |
           # Original JSON string output
           INPUT_JSON='${{ steps.read.outputs.result }}'
