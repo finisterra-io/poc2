@@ -280,6 +280,7 @@ jobs:
 
       - name: Merge stack branches
         run: |
+          git checkout main
           FIRST=true  # Flag to identify the first iteration
 
           # Looping over the branches
