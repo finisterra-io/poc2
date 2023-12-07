@@ -256,7 +256,7 @@ jobs:
 
 
           ROOT_DIR="finisterra/generated/aws/${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}"
-          ALL_STACKS=$(find "${ROOT_DIR}" -maxdepth 1 -mindepth 1 -type d -not -name "stack_*" -exec basename {} \;)
+          ALL_STACKS=$(find "${ROOT_DIR}" -maxdepth 1 -mindepth 1 -type d -name "stack_*" -exec basename {} \;)
           echo "ALL_STACKS=$ALL_STACKS"
 
           # Extract stack names from STACKS_LIST
