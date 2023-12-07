@@ -254,12 +254,14 @@ jobs:
             )
           ')
 
-          # Extract stack names from STACKS_LIST
-          STACK_NAMES=$(echo $STACKS_LIST | jq -r '.[].stack_name')
 
           ROOT_DIR="finisterra/generated/aws/${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}"
           ALL_STACKS=$(find "${ROOT_DIR}" -maxdepth 1 -mindepth 1 -type d -not -name "stack_*" -exec basename {} \;)
+          echo "ALL_STACKS=$ALL_STACKS"
 
+          # Extract stack names from STACKS_LIST
+          STACK_NAMES=$(echo $STACKS_LIST | jq -r '.[].stack_name')
+          echo "STACK_NAMES=$STACK_NAMES"
 
           # Initialize an array to hold missing stacks
           missing_stacks=()
@@ -270,6 +272,8 @@ jobs:
               missing_stacks+=("$folder")
             fi
           done
+
+          echo "missing_stacks=${missing_stacks[*]}"
 
           # Join the missing stacks into a single string
           MISSING_STACKS_STR=$(IFS=, ; echo "${missing_stacks[*]}")
