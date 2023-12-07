@@ -41,8 +41,8 @@ module "aws_kms_key-a72d4304_4f25_4504_8c06_e0f6de813dc6" {
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:user/daniel",
-                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:role/eksClusterRole"
+                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:role/eksClusterRole",
+                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:user/daniel"
                 ]
             },
             "Resource": "*",
@@ -59,8 +59,8 @@ module "aws_kms_key-a72d4304_4f25_4504_8c06_e0f6de813dc6" {
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:user/daniel",
-                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:role/eksClusterRole"
+                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:role/eksClusterRole",
+                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:user/daniel"
                 ]
             },
             "Resource": "*",
@@ -80,8 +80,8 @@ module "aws_kms_key-a72d4304_4f25_4504_8c06_e0f6de813dc6" {
             "Effect": "Allow",
             "Principal": {
                 "AWS": [
-                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:user/daniel",
-                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:role/eksClusterRole"
+                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:role/eksClusterRole",
+                    "arn:${local.aws_partition}:iam::${local.aws_account_id}:user/daniel"
                 ]
             },
             "Resource": "*",
