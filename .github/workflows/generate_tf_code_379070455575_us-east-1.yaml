@@ -227,7 +227,7 @@ jobs:
           INPUT_JSON='${{ steps.read.outputs.result }}'
 
           # Using jq to transform the input JSON into the desired array format
-          STACKS_JSON=$(echo $INPUT_JSON | jq -r -c '
+          STACKS_LIST=$(echo $INPUT_JSON | jq -r -c '
             .stack_list | 
             to_entries | 
             map(
@@ -249,11 +249,37 @@ jobs:
             )
           ')
 
-          echo "Exporting $STACKS_JSON"
-          echo "stacks=$STACKS_JSON" >> $GITHUB_OUTPUT
+          # Extract stack names from STACKS_LIST
+          STACK_NAMES=$(echo $STACKS_LIST | jq -r '.[].stack_name')
+
+          ROOT_DIR="finisterra/generated/aws/${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}"
+          ALL_STACKS=$(find "${ROOT_DIR}" -maxdepth 1 -mindepth 1 -type d -not -name "stack_*" -exec basename {} \;)
+
+
+          # Initialize an array to hold missing stacks
+          missing_stacks=()
+
+          # Find folders in STACKS not in STACKS_LIST and add them to the array
+          for folder in $ALL_STACKS; do
+            if ! echo "$STACK_NAMES" | grep -q "^$folder$"; then
+              missing_stacks+=("$folder")
+            fi
+          done
+
+          # Join the missing stacks into a single string
+          MISSING_STACKS_STR=$(IFS=, ; echo "${missing_stacks[*]}")
+
+          # Output the missing stacks to GitHub output
+          echo "Exporting missing stacks $MISSING_STACKS_STR"
+          echo "missing_stacks=$MISSING_STACKS_STR" >> $GITHUB_OUTPUT
+
+          # Output new stacks
+          echo "Exporting existing stacks $STACKS_LIST"
+          echo "stacks=$STACKS_LIST" >> $GITHUB_OUTPUT
 
     outputs:
       stacks: ${{ steps.export.outputs.stacks }}
+      missing_stacks: ${{ steps.export.outputs.missing_stacks }}
 
   generate_tf_code_stacks:
     needs: [compile_stacks]
@@ -296,8 +322,6 @@ jobs:
 
                 # Check if the branch exists remotely
                 EXISTS=$(git ls-remote --heads origin "refs/heads/${NEW_BRANCH_NAME}" | wc -l)
-
-                echo "EXISTS=$EXISTS"
 
                 if [ "$EXISTS" -eq "1" ]; then
                     # Get PRs associated with the branch
