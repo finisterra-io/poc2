@@ -372,10 +372,10 @@ jobs:
             --max-time 300 \
             ${{ env.FT_BASE_URL }}/api/github/pr
 
-  clean_tf_code_stacks:
+  delete_tf_code_stacks:
     needs: [compile_stacks, generate_tf_code_stacks]
     if: needs.compile_stacks.outputs.missing_stacks != '[]'
-    name: Cleaning ${{ matrix.stack }}
+    name: Deleting ${{ matrix.stack }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
