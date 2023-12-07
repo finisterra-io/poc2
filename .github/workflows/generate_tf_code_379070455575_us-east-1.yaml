@@ -226,7 +226,6 @@ jobs:
         if: steps.read.outputs.result != '{}'
         run: |
           # Original JSON string output
-          echo ${{ steps.read.outputs.result }}
           INPUT_JSON='${{ steps.read.outputs.result }}'
 
           # Using jq to transform the input JSON into the desired array format
@@ -283,94 +282,116 @@ jobs:
       stacks: ${{ steps.export.outputs.stacks }}
       missing_stacks: ${{ steps.export.outputs.missing_stacks }}
 
-  # generate_tf_code_stacks:
-  #   needs: [compile_stacks]
-  #   if: needs.compile_stacks.outputs.stacks != '[]'
-  #   name: Creating ${{ matrix.stack.stack_name }}
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       stack: ${{fromJson(needs.compile_stacks.outputs.stacks)}}
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v3
-  #       with:
-  #         fetch-depth: 0
+  generate_tf_code_stacks:
+    needs: [compile_stacks]
+    if: needs.compile_stacks.outputs.stacks != '[]'
+    name: Creating ${{ matrix.stack.stack_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{fromJson(needs.compile_stacks.outputs.stacks)}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-  #     - name: Set Git User who triggered the workflow
-  #       run: |
-  #         git config user.name "${{ github.actor }}"
-  #         git config user.email "${{ github.actor }}@users.noreply.github.com"
+      - name: Set Git User who triggered the workflow
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-  #     - name: Merge stack branches
-  #       run: |
-  #         git checkout main
-  #         FIRST=true  # Flag to identify the first iteration
+      - name: Merge stack branches
+        run: |
+          git checkout main
+          FIRST=true  # Flag to identify the first iteration
 
-  #         # Looping over the branches
-  #         for BRANCH in ${{ join(matrix.stack.branches, ' ') }}; do
-  #           if [ "$FIRST" = true ]; then
-  #               # Split the branch name by '.' and extract the relevant parts
-  #               IFS='.' read -r -a PARTS <<< "$BRANCH"
-  #               NEW_BRANCH_NAME="${{ matrix.stack.stack_name }}.${PARTS[2]}.${PARTS[3]}.${PARTS[4]}"
-  #               STACK_FOLDER="finisterra/generated/${PARTS[2]}/${PARTS[3]}/${PARTS[4]}/${{ matrix.stack.stack_name }}"
+          # Looping over the branches
+          for BRANCH in ${{ join(matrix.stack.branches, ' ') }}; do
+            if [ "$FIRST" = true ]; then
+                # Split the branch name by '.' and extract the relevant parts
+                IFS='.' read -r -a PARTS <<< "$BRANCH"
+                NEW_BRANCH_NAME="${{ matrix.stack.stack_name }}.${PARTS[2]}.${PARTS[3]}.${PARTS[4]}"
+                STACK_FOLDER="finisterra/generated/${PARTS[2]}/${PARTS[3]}/${PARTS[4]}/${{ matrix.stack.stack_name }}"
 
-  #               # Fetch remote branches
-  #               git fetch origin > /dev/null 2>&1
+                # Fetch remote branches
+                git fetch origin > /dev/null 2>&1
 
-  #               # Check if the branch exists remotely
-  #               EXISTS=$(git ls-remote --heads origin "refs/heads/${NEW_BRANCH_NAME}" | wc -l)
+                # Check if the branch exists remotely
+                EXISTS=$(git ls-remote --heads origin "refs/heads/${NEW_BRANCH_NAME}" | wc -l)
 
-  #               if [ "$EXISTS" -eq "1" ]; then
-  #                   # Get PRs associated with the branch
-  #                   PR_STATE=$(curl -s \
-  #                     -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-  #                     -H "Accept: application/vnd.github.v3+json" \
-  #                     --max-time 300 \
-  #                     "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${NEW_BRANCH_NAME}" \
-  #                     | jq -r '.[0].state')
+                if [ "$EXISTS" -eq "1" ]; then
+                    # Get PRs associated with the branch
+                    PR_STATE=$(curl -s \
+                      -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                      -H "Accept: application/vnd.github.v3+json" \
+                      --max-time 300 \
+                      "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${NEW_BRANCH_NAME}" \
+                      | jq -r '.[0].state')
 
-  #                   echo "PR_STATE=$PR_STATE"
+                    if [ "$PR_STATE" == "open" ]; then
+                      git checkout ${NEW_BRANCH_NAME}
+                      git pull origin ${NEW_BRANCH_NAME}
+                    else
+                      echo "DELETING BRANCH ${NEW_BRANCH_NAME}"
+                      git push origin --delete ${NEW_BRANCH_NAME}
+                      git checkout -b ${NEW_BRANCH_NAME}
+                    fi
+                else
+                    git checkout -b ${NEW_BRANCH_NAME}
+                fi
 
-  #                   if [ "$PR_STATE" == "open" ]; then
-  #                     git checkout ${NEW_BRANCH_NAME}
-  #                     git pull origin ${NEW_BRANCH_NAME}
-  #                   else
-  #                     echo "DELETING BRANCH ${NEW_BRANCH_NAME}"
-  #                     git push origin --delete ${NEW_BRANCH_NAME}
-  #                     git checkout -b ${NEW_BRANCH_NAME}
-  #                   fi
-  #               else
-  #                   git checkout -b ${NEW_BRANCH_NAME}
-  #               fi
+                #Clena existing code
+                rm -rf ${STACK_FOLDER} || true
 
-  #               #Clena existing code
-  #               rm -rf ${STACK_FOLDER} || true
+                if [ -n "$(git status --porcelain)" ]; then
+                  echo "Changes detected"
+                  git add --all
+                  git commit -m "Automatic scan for ${NEW_BRANCH_NAME}"
+                  git push origin ${NEW_BRANCH_NAME}
+                fi
 
-  #               if [ -n "$(git status --porcelain)" ]; then
-  #                 echo "Changes detected"
-  #                 git add --all
-  #                 git commit -m "Automatic scan for ${NEW_BRANCH_NAME}"
-  #                 git push origin ${NEW_BRANCH_NAME}
-  #               fi
+                # Reset the FIRST flag so that the next iterations skip this block
+                FIRST=false
+            fi
 
-  #               # Reset the FIRST flag so that the next iterations skip this block
-  #               FIRST=false
-  #           fi
+            echo "Merging branch $BRANCH into $NEW_BRANCH_NAME"
+            git fetch origin $BRANCH
+            git merge --no-ff --allow-unrelated-histories origin/$BRANCH -m "Merging branch $BRANCH into $NEW_BRANCH_NAME"
+          done
 
-  #           echo "Merging branch $BRANCH into $NEW_BRANCH_NAME"
-  #           git fetch origin $BRANCH
-  #           git merge --no-ff --allow-unrelated-histories origin/$BRANCH -m "Merging branch $BRANCH into $NEW_BRANCH_NAME"
-  #         done
+          git push origin ${NEW_BRANCH_NAME}
 
-  #         git push origin ${NEW_BRANCH_NAME}
+          # Create a PR
+          PR_BODY="Automated code generated\n\nFOLDER:  ${{ matrix.stack.stack_name }}\n\n[skip cicd]"
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.FT_API_KEY }}" \
+            -d '{"repositoryName": "${{ github.repository }}", "branchName": "'"${NEW_BRANCH_NAME}"'", "owner": "${{ github.repository_owner }}", "pr_body": "'"${PR_BODY}"'"}' \
+            --max-time 300 \
+            ${{ env.FT_BASE_URL }}/api/github/pr
 
-  #         # Create a PR
-  #         PR_BODY="Automated code generated\n\nFOLDER:  ${{ matrix.stack.stack_name }}\n\n[skip cicd]"
-  #         curl -X POST \
-  #           -H "Content-Type: application/json" \
-  #           -H "Authorization: Bearer ${{ secrets.FT_API_KEY }}" \
-  #           -d '{"repositoryName": "${{ github.repository }}", "branchName": "'"${NEW_BRANCH_NAME}"'", "owner": "${{ github.repository_owner }}", "pr_body": "'"${PR_BODY}"'"}' \
-  #           --max-time 300 \
-  #           ${{ env.FT_BASE_URL }}/api/github/pr
+  clean_tf_code_stacks:
+    needs: [compile_stacks, generate_tf_code_stacks]
+    if: needs.compile_stacks.outputs.missing_stacks != '[]'
+    name: Cleaning ${{ matrix.stack }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{fromJson(needs.compile_stacks.outputs.missing_stacks)}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set Git User who triggered the workflow
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Merge stack branches
+        run: |
+          git checkout main
