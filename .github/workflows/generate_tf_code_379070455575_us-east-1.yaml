@@ -254,7 +254,6 @@ jobs:
             )
           ')
 
-
           ROOT_DIR="finisterra/generated/aws/${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}"
           ALL_STACKS=$(find "${ROOT_DIR}" -maxdepth 1 -mindepth 1 -type d -name "stack_*" -exec basename {} \;)
           echo "ALL_STACKS=$ALL_STACKS"
@@ -273,16 +272,16 @@ jobs:
             fi
           done
 
-          echo "missing_stacks=${missing_stacks[*]}"
+          # Convert the missing stacks array to a JSON array of strings
+          MISSING_STACKS_JSON=$(printf '%s\n' "${missing_stacks[@]}" | jq -R -s -c 'split("\n")[:-1]')
 
-          # Join the missing stacks into a single string
-          MISSING_STACKS_STR=$(IFS=, ; echo "${missing_stacks[*]}")
+          echo "Missing stacks JSON: $MISSING_STACKS_JSON"
 
           # Output the missing stacks to GitHub output
-          echo "Exporting missing stacks ${missing_stacks[*]}"
-          echo "missing_stacks=${missing_stacks[*]}" >> $GITHUB_OUTPUT
+          echo "Exporting missing stacks $MISSING_STACKS_JSON"
+          echo "missing_stacks=$MISSING_STACKS_JSON" >> $GITHUB_OUTPUT
 
-          # Output new stacks
+          # Output existing stacks
           echo "Exporting existing stacks $STACKS_LIST"
           echo "stacks=$STACKS_LIST" >> $GITHUB_OUTPUT
 
