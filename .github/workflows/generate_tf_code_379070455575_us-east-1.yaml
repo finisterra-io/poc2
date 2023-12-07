@@ -198,7 +198,7 @@ jobs:
 
       - uses: cloudposse/github-action-matrix-outputs-write@0.4.2
         id: stack_output
-        if: steps.create_pr.outputs.stack_list != ''
+        if: steps.create_pr.outputs.stack_list != '""'
         with:
           matrix-step-name: ${{ github.job }}
           matrix-key: ${{ matrix.service.service_name }}
