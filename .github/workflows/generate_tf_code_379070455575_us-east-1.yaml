@@ -279,8 +279,8 @@ jobs:
           MISSING_STACKS_STR=$(IFS=, ; echo "${missing_stacks[*]}")
 
           # Output the missing stacks to GitHub output
-          echo "Exporting missing stacks $MISSING_STACKS_STR"
-          echo "missing_stacks=$MISSING_STACKS_STR" >> $GITHUB_OUTPUT
+          echo "Exporting missing stacks ${missing_stacks[*]}"
+          echo "missing_stacks=${missing_stacks[*]}" >> $GITHUB_OUTPUT
 
           # Output new stacks
           echo "Exporting existing stacks $STACKS_LIST"
