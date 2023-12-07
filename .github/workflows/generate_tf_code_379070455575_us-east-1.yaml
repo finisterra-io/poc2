@@ -17,6 +17,7 @@ env:
   FT_BASE_URL: https://app.finisterra.io
   AWS_ACCOUNT_ID: 379070455575
   AWS_REGION: us-east-1
+  ROOT_DIR: "finisterra/generated/aws/379070455575/us-east-1"
 
 concurrency:
   group: ${{ github.workflow }}
@@ -161,11 +162,11 @@ jobs:
                 git checkout -b ${BRANCH}
               fi
 
-              mkdir -p "${{ matrix.service.root_folder }}"
-              cp "/tmp/generated/terragrunt.hcl" "${{ matrix.service.root_folder }}"
-              TARGET_DIR="${{ matrix.service.root_folder }}/$(basename ${DIR})"
+              mkdir -p ${{ env.ROOT_DIR }}
+              cp /tmp/generated/terragrunt.hcl ${{ env.ROOT_DIR }}
+              TARGET_DIR="${{ env.ROOT_DIR }}/$(basename ${DIR})"
               find "${TARGET_DIR}" -mindepth 1 -not -name 'terragrunt.hcl' -exec rm -rf {} + || true
-              cp -a "${DIR}" "${{ matrix.service.root_folder }}" || true
+              cp -a ${DIR} ${{ env.ROOT_DIR }} || true
               find "${TARGET_DIR}" -name ".*" -exec rm -rf {} \; || true
 
               if [ -n "$(git status --porcelain)" ]; then
@@ -251,8 +252,7 @@ jobs:
             )
           ')
 
-          ROOT_DIR="finisterra/generated/aws/${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}"
-          ALL_STACKS=$(find "${ROOT_DIR}" -maxdepth 1 -mindepth 1 -type d -name "stack_*" -exec basename {} \;)
+          ALL_STACKS=$(find ${{ env.ROOT_DIR }} -maxdepth 1 -mindepth 1 -type d -name "stack_*" -exec basename {} \;)
 
           # Extract stack names from STACKS_LIST
           STACK_NAMES=$(echo $STACKS_LIST | jq -r '.[].stack_name')
@@ -395,3 +395,48 @@ jobs:
       - name: Merge stack branches
         run: |
           git checkout main
+          BRANCH="${{ matrix.stack }}.aws.${{ env.AWS_ACCOUNT_ID }}.${{ env.AWS_REGION }}"
+
+          # Fetch remote branches
+          git fetch origin > /dev/null 2>&1
+
+          # Check if the branch exists remotely
+          EXISTS=$(git ls-remote --heads origin "refs/heads/${BRANCH}" | wc -l)
+
+          if [ "$EXISTS" -eq "1" ]; then
+            # Get PRs associated with the branch
+            PR_STATE=$(curl -s \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              --max-time 300 \
+              "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${BRANCH}" \
+              | jq -r '.[0].state')
+
+            if [ "$PR_STATE" == "open" ]; then
+              git checkout ${BRANCH}
+              git pull origin ${BRANCH}
+            else
+              git push origin --delete ${BRANCH}
+              git checkout -b ${BRANCH}
+            fi
+          else
+            git checkout -b ${BRANCH}
+          fi
+
+          find "${{ env.ROOT_DIR }}/${{ matrix.stack }}" -mindepth 1 -not -name 'terragrunt.hcl' -exec rm -rf {} + || true
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Changes detected"
+            git add --all
+            git commit -m "Automatic scan for ${BRANCH}"
+            git push origin ${BRANCH}
+          fi
+
+          # Create a PR
+          PR_BODY="Automated code generated\n\nFOLDER:  ${{ matrix.stack }}\n\n[skip cicd]"
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.FT_API_KEY }}" \
+            -d '{"repositoryName": "${{ github.repository }}", "branchName": "'"${BRANCH}"'", "owner": "${{ github.repository_owner }}", "pr_body": "'"${PR_BODY}"'"}' \
+            --max-time 300 \
+            ${{ env.FT_BASE_URL }}/api/github/pr
